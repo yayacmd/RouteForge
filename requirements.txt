@@ -6,5 +6,4 @@ IPython
 pandas
 requests
 folium
-time
 numpy
