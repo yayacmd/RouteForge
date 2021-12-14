@@ -7,6 +7,5 @@ html
 pandas
 requests
 folium
-functools
 time
 numpy
