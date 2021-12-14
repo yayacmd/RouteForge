@@ -3,7 +3,6 @@ datetime
 ortools
 ipywidgets
 IPython
-html
 pandas
 requests
 folium
