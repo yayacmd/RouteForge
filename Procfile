@@ -1,1 +1,1 @@
-web: voila --no-browser --port=0.0.0.0:$PORT --enable_nbextensions=True Optimization.ipynb
+web: voila --no-browser --ip=0.0.0.0 --port=$PORT --enable_nbextensions=True Optimization.ipynb
