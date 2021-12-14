@@ -1,7 +1,6 @@
 ipydatetime
 datetime
 ortools
-urllib
 json
 ipywidgets
 IPython
