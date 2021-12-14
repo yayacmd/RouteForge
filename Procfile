@@ -1,1 +1,1 @@
-web: voila --no-browser --port=$PORT
+web: voila --no-browser --port=$PORT --ip=localhost
