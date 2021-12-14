@@ -1,7 +1,6 @@
 ipydatetime
 datetime
 ortools
-json
 ipywidgets
 IPython
 html
