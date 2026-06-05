@@ -1,1 +1,0 @@
-web: voila --no-browser --port=$PORT --Voila.ip="0.0.0.0" --theme=dark --enable_nbextensions=True --preheat_kernel=True --pool_size=3 --fill_delay=1 --MappingKernelManager.cull_interval=20 --MappingKernelManager.cull_idle_timeout=20 Optimization.ipynb
