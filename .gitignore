@@ -1,0 +1,20 @@
+# Secrets — never commit your API key
+api_key.txt
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Local working data (uncomment if you don't want to track your own routes)
+# appdata/*.json
+# appdata/route_templates/*/
