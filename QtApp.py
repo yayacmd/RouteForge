@@ -1869,7 +1869,7 @@ class MainWindow(QMainWindow):
         global mms_gateways
         server = smtplib.SMTP( "smtp.gmail.com", 587 )
         server.starttls()
-        server.login( 'michaelyayac@gmail.com', 'aaerhbwebxuhgcji' )
+        server.login( '', '' )
         for route in self.driver_list:
             name=route['ComboBox'].currentText()
             number=drivers_list['Driver Cell Number'][route['ComboBox'].currentIndex()]
@@ -1881,7 +1881,7 @@ class MainWindow(QMainWindow):
             msg=MIMEText('https://www.google.com/maps/dir/?api=1&'+'origin='+urllib.parse.quote(origin)+'&destination='+urllib.parse.quote(origin)+'&waypoints='+urllib.parse.quote('|'.join(waypoints))+'&travelmode=driving&dir_action=navigate')
             msg['Subject'] = 'Route for '+truck+':'
             print("Message length is", len(msg))
-            server.sendmail('Mike',number_address,msg.as_string())
+            server.sendmail('',number_address,msg.as_string())
         
     def run_algorithm(self):
         clearLayout(self.output_layout)
