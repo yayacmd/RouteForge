@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: routeforge
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter          # free tier sleeps when idle; starter stays warm
+    healthCheckPath: /healthz
+    disk:
+      name: routeforge-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: ROUTEFORGE_DATA
+        value: /data
+      # Set these in the Render dashboard, or finish setup in the browser.
+      - key: LOCATIONIQ_API_KEY
+        sync: false
+      - key: ROUTEFORGE_PASSWORD
+        sync: false

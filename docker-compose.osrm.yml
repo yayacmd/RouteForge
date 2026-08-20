@@ -1,0 +1,48 @@
+# Self-hosted routing: no API key, no rate limits.
+#
+# One-time map preparation (example: New Jersey). Pick your own region from
+# https://download.geofabrik.de/ and set REGION/PBF_URL to match.
+#
+#   mkdir -p osrm-data && cd osrm-data
+#   curl -O https://download.geofabrik.de/north-america/us/new-jersey-latest.osm.pbf
+#   docker run -t -v "${PWD}:/data" ghcr.io/project-osrm/osrm-backend \
+#       osrm-extract -p /opt/car.lua /data/new-jersey-latest.osm.pbf
+#   docker run -t -v "${PWD}:/data" ghcr.io/project-osrm/osrm-backend \
+#       osrm-partition /data/new-jersey-latest.osrm
+#   docker run -t -v "${PWD}:/data" ghcr.io/project-osrm/osrm-backend \
+#       osrm-customize /data/new-jersey-latest.osrm
+#
+# Then: docker compose -f docker-compose.yml -f docker-compose.osrm.yml up -d
+
+services:
+  routeforge:
+    environment:
+      ROUTING_PROVIDER: osrm
+      OSRM_URL: http://osrm:5000
+      NOMINATIM_URL: http://nominatim:8080
+    depends_on:
+      - osrm
+
+  osrm:
+    image: ghcr.io/project-osrm/osrm-backend
+    command: osrm-routed --algorithm mld /data/new-jersey-latest.osrm
+    volumes:
+      - ./osrm-data:/data
+    restart: unless-stopped
+
+  # Address search. First start downloads and imports the region (slow, and
+  # it wants several GB of disk). Omit this service and enter coordinates
+  # manually if you'd rather not run it.
+  nominatim:
+    image: mediagis/nominatim:4.4
+    environment:
+      PBF_URL: https://download.geofabrik.de/north-america/us/new-jersey-latest.osm.pbf
+      REPLICATION_URL: https://download.geofabrik.de/north-america/us/new-jersey-updates/
+      NOMINATIM_PASSWORD: nominatim
+    volumes:
+      - nominatim-data:/var/lib/postgresql/14/main
+    shm_size: 1gb
+    restart: unless-stopped
+
+volumes:
+  nominatim-data:

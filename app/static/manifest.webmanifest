@@ -1,0 +1,16 @@
+{
+  "name": "RouteForge — delivery route planning",
+  "short_name": "RouteForge",
+  "description": "Plan optimised delivery routes for your fleet.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#16202B",
+  "theme_color": "#16202B",
+  "icons": [
+    { "src": "/static/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/static/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/static/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

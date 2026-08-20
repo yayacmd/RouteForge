@@ -1,0 +1,21 @@
+services:
+  routeforge:
+    build: .
+    # Or use the prebuilt image instead of building:
+    # image: ghcr.io/OWNER/routeforge:latest
+    ports:
+      # Bound to localhost by default. To reach it from other machines on your
+      # network, change to "8000:8000" — and read the security note in README.
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - routeforge-data:/data
+    environment:
+      # Optional: pre-configure instead of using the setup screen.
+      # ROUTEFORGE_PASSWORD: change-me-please
+      # ROUTING_PROVIDER: locationiq
+      # LOCATIONIQ_API_KEY: pk.your_key_here
+      TZ: ${TZ:-UTC}
+    restart: unless-stopped
+
+volumes:
+  routeforge-data:

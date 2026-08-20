@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RouteForge — delivery route planning</title>
+<meta name="description" content="Plan optimised delivery routes for your fleet.">
+<meta name="theme-color" content="#16202B">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/static/icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link id="webfonts" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/vendor/leaflet.css">
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+
+<!-- ============ Boot / gate screens ============ -->
+<div id="gate" class="gate">
+  <div class="gate-card">
+    <div class="gate-mark" aria-hidden="true">
+      <span class="stripe"></span><span class="stripe"></span><span class="stripe"></span>
+    </div>
+    <h1 class="gate-title">RouteForge</h1>
+
+    <!-- Loading -->
+    <div id="gate-loading" class="gate-panel">
+      <p class="muted">Checking this instance…</p>
+    </div>
+
+    <!-- First-run setup -->
+    <form id="gate-setup" class="gate-panel hidden" autocomplete="off">
+      <p class="gate-lead">Let's get this instance set up. This runs once.</p>
+
+      <label class="field">
+        <span class="label">What should we call your operation?</span>
+        <input name="organization_name" type="text" placeholder="e.g. Yayac Fuel Co" required>
+      </label>
+
+      <label class="field">
+        <span class="label">Choose a password for everyone who'll use this</span>
+        <input name="password" type="password" minlength="8" required
+               placeholder="At least 8 characters">
+        <span class="hint">Everyone in the office shares this one password. You can change it later.</span>
+      </label>
+
+      <label class="field">
+        <span class="label">Map &amp; routing service</span>
+        <select name="routing_provider" id="setup-provider">
+          <option value="locationiq">LocationIQ — easiest, free tier</option>
+          <option value="ors">OpenRouteService — larger free tier</option>
+          <option value="osrm">Self-hosted OSRM — no limits, advanced</option>
+        </select>
+        <span class="hint" id="provider-hint">
+          Free key at <a href="https://locationiq.com/register" target="_blank" rel="noopener">locationiq.com</a>.
+          It's used to look up addresses and measure driving distances.
+        </span>
+      </label>
+
+      <label class="field" id="setup-key-field">
+        <span class="label">API key</span>
+        <input name="routing_api_key" type="text" placeholder="Paste your key here">
+      </label>
+
+      <div id="setup-osrm-fields" class="hidden">
+        <label class="field">
+          <span class="label">OSRM server address</span>
+          <input name="routing_base_url" type="text" placeholder="http://osrm:5000">
+        </label>
+        <label class="field">
+          <span class="label">Nominatim address (for address search)</span>
+          <input name="nominatim_url" type="text" placeholder="http://nominatim:8080">
+        </label>
+      </div>
+
+      <p class="form-error hidden" id="setup-error"></p>
+      <button class="btn btn-primary btn-block" type="submit">Finish setup</button>
+    </form>
+
+    <!-- Login -->
+    <form id="gate-login" class="gate-panel hidden" autocomplete="off">
+      <p class="gate-lead" id="login-lead">Sign in to plan routes.</p>
+      <label class="field">
+        <span class="label">Password</span>
+        <input name="password" type="password" required autofocus>
+      </label>
+      <p class="form-error hidden" id="login-error"></p>
+      <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+    </form>
+  </div>
+</div>
+
+<!-- ============ Main application ============ -->
+<div id="app" class="app hidden">
+  <header class="topbar">
+    <button class="nav-toggle" id="nav-toggle" aria-label="Menu">☰</button>
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-name" id="brand-name">RouteForge</span>
+    </div>
+    <div class="topbar-right">
+      <span class="save-state" id="save-state"></span>
+      <button class="btn btn-ghost btn-sm" id="btn-logout">Sign out</button>
+    </div>
+  </header>
+
+  <div class="shell">
+    <nav class="sidebar" id="sidebar">
+      <p class="nav-group">Set up once</p>
+      <button class="nav-item" data-view="commodities">
+        <span>What you deliver</span><span class="nav-count" id="count-commodities">0</span>
+      </button>
+      <button class="nav-item" data-view="locations">
+        <span>Places</span><span class="nav-count" id="count-locations">0</span>
+      </button>
+      <button class="nav-item" data-view="fleet">
+        <span>Vehicles</span><span class="nav-count" id="count-vehicles">0</span>
+      </button>
+      <button class="nav-item" data-view="depots">
+        <span>Reload depots</span><span class="nav-count" id="count-depots">0</span>
+      </button>
+
+      <p class="nav-group">Every run</p>
+      <button class="nav-item" data-view="stops">
+        <span>Today's stops</span><span class="nav-count" id="count-stops">0</span>
+      </button>
+      <button class="nav-item is-primary" data-view="plan">
+        <span>Build routes</span>
+      </button>
+      <button class="nav-item" data-view="results">
+        <span>Run sheets</span>
+      </button>
+
+      <p class="nav-group">Instance</p>
+      <button class="nav-item" data-view="settings"><span>Settings</span></button>
+    </nav>
+
+    <main class="work" id="work">
+
+      <!-- What you deliver -->
+      <section class="view" data-view="commodities">
+        <div class="view-head">
+          <div>
+            <h2>What you deliver</h2>
+            <p class="muted">Name each product you carry. Most operations have one.</p>
+          </div>
+          <button class="btn btn-primary" id="add-commodity">Add product</button>
+        </div>
+        <div id="commodity-list" class="stack"></div>
+        <div class="empty hidden" id="commodity-empty">
+          <p>Nothing set up yet. Add the product you deliver — fuel, water, pallets, whatever it is.</p>
+          <button class="btn btn-primary" id="add-commodity-2">Add your first product</button>
+          <button class="btn btn-ghost" id="load-demo">Load a demo day instead</button>
+        </div>
+      </section>
+
+      <!-- Places -->
+      <section class="view" data-view="locations">
+        <div class="view-head">
+          <div>
+            <h2>Places</h2>
+            <p class="muted">Yards, customers, and depots. Search an address to add one.</p>
+          </div>
+        </div>
+        <div class="search-row">
+          <div class="search-wrap">
+            <input type="text" id="loc-search" placeholder="Search an address…" autocomplete="off">
+            <div class="suggestions hidden" id="loc-suggestions"></div>
+          </div>
+        </div>
+        <div id="location-list" class="stack"></div>
+        <div class="empty hidden" id="location-empty">
+          <p>No places yet. Start by adding your yard — where the trucks begin the day.</p>
+        </div>
+      </section>
+
+      <!-- Fleet -->
+      <section class="view" data-view="fleet">
+        <div class="view-head">
+          <div>
+            <h2>Vehicles</h2>
+            <p class="muted">Each truck's capacity and working hours.</p>
+          </div>
+          <button class="btn btn-primary" id="add-vehicle">Add vehicle</button>
+        </div>
+        <div id="vehicle-list" class="stack"></div>
+        <div class="empty hidden" id="vehicle-empty">
+          <p>No vehicles yet. Add at least one before building routes.</p>
+        </div>
+      </section>
+
+      <!-- Depots -->
+      <section class="view" data-view="depots">
+        <div class="view-head">
+          <div>
+            <h2>Reload depots</h2>
+            <p class="muted">Where a truck can refill mid-route. Adding one lets a truck
+              deliver more than it can carry in a single load.</p>
+          </div>
+          <button class="btn btn-primary" id="add-depot">Add depot</button>
+        </div>
+        <div id="depot-list" class="stack"></div>
+        <div class="empty hidden" id="depot-empty">
+          <p>No reload depots. Trucks will be limited to the load they start with.</p>
+        </div>
+      </section>
+
+      <!-- Stops -->
+      <section class="view" data-view="stops">
+        <div class="view-head">
+          <div>
+            <h2>Today's stops</h2>
+            <p class="muted">What's going out, how much, and when it's due.</p>
+          </div>
+          <div class="head-actions">
+            <button class="btn btn-ghost" id="clear-stops">Clear all</button>
+            <button class="btn btn-primary" id="add-stop">Add stop</button>
+          </div>
+        </div>
+        <div id="stop-list" class="stack"></div>
+        <div class="empty hidden" id="stop-empty">
+          <p>No stops on the board. Add the deliveries you need to make today.</p>
+        </div>
+      </section>
+
+      <!-- Build routes -->
+      <section class="view" data-view="plan">
+        <div class="view-head">
+          <div>
+            <h2>Build routes</h2>
+            <p class="muted">Set the shape of the day, then plan.</p>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="grid-3">
+            <label class="field">
+              <span class="label">Day starts at</span>
+              <input type="time" id="opt-day-start" value="06:00">
+            </label>
+            <label class="field">
+              <span class="label">Longest shift</span>
+              <div class="input-suffix">
+                <input type="number" id="opt-max-shift" value="10" min="1" max="24" step="0.5">
+                <span>hours</span>
+              </div>
+            </label>
+            <label class="field">
+              <span class="label">Distances in</span>
+              <select id="opt-units">
+                <option value="miles">Miles</option>
+                <option value="kilometers">Kilometres</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="grid-2">
+            <label class="field">
+              <span class="label">Plan for</span>
+              <select id="opt-objective">
+                <option value="distance">Least driving distance</option>
+                <option value="time">Least driving time</option>
+                <option value="balanced">An even day for each driver</option>
+              </select>
+              <span class="hint">Even days spread the work; least distance may load one truck heavily.</span>
+            </label>
+            <label class="field">
+              <span class="label">Planning effort</span>
+              <select id="opt-effort">
+                <option value="quick">Quick — a few seconds</option>
+                <option value="normal" selected>Normal — about 15 seconds</option>
+                <option value="thorough">Thorough — about a minute</option>
+              </select>
+              <span class="hint">More effort finds better routes on big days.</span>
+            </label>
+          </div>
+
+          <details class="advanced">
+            <summary>Advanced solver settings</summary>
+            <p class="hint">For developers. The defaults are good; wrong values here quietly
+              produce worse routes.</p>
+            <div class="grid-2">
+              <label class="field">
+                <span class="label">First solution strategy</span>
+                <input type="text" id="opt-fss" value="AUTOMATIC">
+              </label>
+              <label class="field">
+                <span class="label">Local search metaheuristic</span>
+                <input type="text" id="opt-lsm" value="GUIDED_LOCAL_SEARCH">
+              </label>
+            </div>
+          </details>
+        </div>
+
+        <div class="plan-cta">
+          <button class="btn btn-go" id="btn-solve">Build routes</button>
+          <p class="muted" id="plan-summary"></p>
+        </div>
+
+        <div id="plan-feedback"></div>
+      </section>
+
+      <!-- Results -->
+      <section class="view" data-view="results">
+        <div class="view-head">
+          <div>
+            <h2>Run sheets</h2>
+            <p class="muted" id="results-sub">Plan a day to see routes here.</p>
+          </div>
+          <div class="head-actions">
+            <button class="btn btn-ghost hidden" id="btn-export">Download CSV</button>
+            <button class="btn btn-ghost hidden" id="btn-resolve">Re-plan</button>
+          </div>
+        </div>
+        <div id="results-totals"></div>
+        <div id="map" class="map hidden"></div>
+        <div id="run-sheets" class="run-sheets"></div>
+      </section>
+
+      <!-- Settings -->
+      <section class="view" data-view="settings">
+        <div class="view-head">
+          <div>
+            <h2>Settings</h2>
+            <p class="muted">Instance configuration.</p>
+          </div>
+        </div>
+        <div class="panel">
+          <label class="field">
+            <span class="label">Operation name</span>
+            <input type="text" id="set-org">
+          </label>
+          <label class="field">
+            <span class="label">Routing service</span>
+            <input type="text" id="set-provider" disabled>
+          </label>
+          <label class="field">
+            <span class="label">Replace API key</span>
+            <input type="text" id="set-key" placeholder="Leave blank to keep the current key">
+          </label>
+          <label class="field">
+            <span class="label">Change password</span>
+            <input type="password" id="set-password" placeholder="Leave blank to keep the current password">
+          </label>
+          <button class="btn btn-primary" id="save-settings">Save settings</button>
+        </div>
+
+        <div class="panel">
+          <h3>Automation</h3>
+          <p class="muted">Send this token as an <code>X-API-Token</code> header to use the
+            API from a script. Full reference at <a href="/docs" target="_blank" rel="noopener">/docs</a>.</p>
+          <div class="token-row">
+            <code id="api-token" class="token"></code>
+            <button class="btn btn-ghost btn-sm" id="copy-token">Copy</button>
+            <button class="btn btn-ghost btn-sm" id="rotate-token">Replace</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>Your data</h3>
+          <p class="muted">Everything lives on this server. Download a copy as a backup or
+            to move it to another instance.</p>
+          <div class="head-actions">
+            <button class="btn btn-ghost" id="export-plan">Download data</button>
+            <button class="btn btn-ghost" id="import-plan">Restore from file</button>
+            <input type="file" id="import-file" accept="application/json" class="hidden">
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="/static/vendor/leaflet.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>
